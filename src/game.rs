@@ -8,7 +8,8 @@ use wasm_bindgen::prelude::*;
 // Define the size of our "checkerboard"
 const CANVAS_SIZE: usize = 128;
 const MENU_HEIGHT: usize = 24;
-const OUTPUT_BUFFER_SIZE: usize = CANVAS_SIZE * CANVAS_SIZE * 4;
+const BASE_BUFFER_SIZE: usize = CANVAS_SIZE * CANVAS_SIZE;
+const OUTPUT_BUFFER_SIZE: usize = BASE_BUFFER_SIZE * 4;
 
 #[derive(Clone, Hash, std::cmp::Eq)]
 struct Point(usize, usize);
@@ -21,8 +22,8 @@ impl PartialEq for Point {
 
 #[wasm_bindgen]
 pub struct Game {
-    read_buffer: [u8; OUTPUT_BUFFER_SIZE],
-    write_buffer: [u8; OUTPUT_BUFFER_SIZE],
+    output_buffer: [u8; OUTPUT_BUFFER_SIZE],
+    is_processed: [bool; BASE_BUFFER_SIZE],
     current_brush: Colour,
     palette: HashMap<Point, Colour>
 }
@@ -33,8 +34,8 @@ impl Game {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Game {
         let mut g = Game{
-            read_buffer: [0; OUTPUT_BUFFER_SIZE],
-            write_buffer: [0; OUTPUT_BUFFER_SIZE],
+            output_buffer: [0; OUTPUT_BUFFER_SIZE],
+            is_processed: [false; BASE_BUFFER_SIZE],
             current_brush: WHITE.clone(),
             palette: HashMap::new()
         };
@@ -136,6 +137,7 @@ impl Game {
         let v = self.getv(x as usize, y as usize);
         self.putv(x as usize, y as usize, BLACK.as_uarr());
         self.putv(x2 as usize, y2 as usize, v);
+        self.is_processed[(y2 as usize) * CANVAS_SIZE + x2 as usize] = true;
     }
 
     #[wasm_bindgen]
@@ -187,10 +189,20 @@ impl Game {
     #[wasm_bindgen]
     pub fn update(&mut self) {
 
-        self.swap_buffers();
+        for y in 0..CANVAS_SIZE {
+            for x in 0..CANVAS_SIZE {
+                self.is_processed[y*CANVAS_SIZE + x] = false;
+            }
+        }
+
+        //self.swap_buffers();
 
         for y in 0..(CANVAS_SIZE - MENU_HEIGHT) {
             for x in 0..CANVAS_SIZE {
+
+                if self.is_processed[y*CANVAS_SIZE + x] {
+                    continue;
+                }
 
                 let v = self.getiv(x, y);
                 
@@ -215,25 +227,25 @@ impl Game {
 
     pub fn get_output_buffer_pointer(&self) -> *const u8 {
         let pointer: *const u8;
-        pointer = self.read_buffer.as_ptr();
+        pointer = self.output_buffer.as_ptr();
         return pointer;
     }
 
-    fn swap_buffers(&mut self) {
-        for y in 0..CANVAS_SIZE {
-            for x in 0..CANVAS_SIZE {
-                let idx = (y*CANVAS_SIZE + x)*4;
-                for off in 0..4 {
-                    self.read_buffer[idx + off] = self.write_buffer[idx + off];
-                }
-            }
-        }
-    }
+    // fn swap_buffers(&mut self) {
+    //     for y in 0..CANVAS_SIZE {
+    //         for x in 0..CANVAS_SIZE {
+    //             let idx = (y*CANVAS_SIZE + x)*4;
+    //             for off in 0..4 {
+    //                 self.read_buffer[idx + off] = self.write_buffer[idx + off];
+    //             }
+    //         }
+    //     }
+    // }
     
     fn putv(&mut self, x: usize, y: usize, v: [u8; 4]) {
         let idx = (y*CANVAS_SIZE + x)*4;
         for off in 0..4 {
-            self.write_buffer[idx + off] = v[off];
+            self.output_buffer[idx + off] = v[off];
         }
     }
     
@@ -241,7 +253,7 @@ impl Game {
         let mut rv: [u8; 4] = [0; 4];
         let idx = (y*CANVAS_SIZE + x)*4;
         for off in 0..4 {
-            rv[off] = self.read_buffer[idx + off];
+            rv[off] = self.output_buffer[idx + off];
         }
         rv
     }
@@ -250,7 +262,7 @@ impl Game {
         let mut iarr: [i32; 4] = [0; 4];
         let idx = (y*CANVAS_SIZE + x)*4;
         for i in 0..4 {
-            iarr[i] = self.read_buffer[idx + i] as i32;
+            iarr[i] = self.output_buffer[idx + i] as i32;
         }
         (iarr[0] << 16) + (iarr[1] << 8) + iarr[2]
     }
