@@ -1,2 +1,9 @@
 mod colour;
 mod game;
+mod kinds;
+mod actions;
+mod particle;
+mod background;
+mod salt;
+mod concrete;
+mod water;

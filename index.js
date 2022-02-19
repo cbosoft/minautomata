@@ -16,11 +16,14 @@ function after_load(rust, wasm) {
 
 const container = document.getElementById("container");
 const canvasElement = document.querySelector("canvas");
+var canvas_size = 20;
 
 function start(game, wasm) {
 
+  canvas_size = game.get_canvas_size();
+
     // Get our canvas element from our index.html
-    canvasElement.width = canvasElement.height = game.get_canvas_size();
+    canvasElement.width = canvasElement.height = canvas_size;
 
     // Set up Context and ImageData on the canvas
     const canvasContext = canvasElement.getContext("2d");
@@ -70,7 +73,7 @@ function paint(game, e) {
     let w = window.innerWidth;
     let h = window.innerHeight;
     let s = (h < w ? h : w);
-    let cs = game.get_canvas_size();
+    let cs = canvas_size;
     x = Math.floor(x/s*cs);
     y = Math.floor(y/s*cs);
 
