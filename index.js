@@ -1,75 +1,117 @@
 import wasmInit from "./pkg/minautomata.js";
 
-const runWasm = async () => {
-  // Instantiate our wasm module
-  const rustWasm = await wasmInit("./pkg/minautomata_bg.wasm");
+const r = wasmInit("./pkg/minautomata_bg.wasm");
 
-  // Run init
-  rustWasm.init_game();
+r.then(after_init).catch(console.error);
 
-  // Create a Uint8Array to give us access to Wasm Memory
-  // const wasmByteMemoryArray = new Uint8Array(rustWasm.memory.buffer);
+function after_init(w) {
+  const r = import("./pkg/minautomata.js");
+  r.then(r => after_load(r, w)).catch(console.error);
+}
 
-  // Get our canvas element from our index.html
-  const canvasElement = document.querySelector("canvas");
-  canvasElement.width = 20; //rustWasm.get_canvas_size();
-  canvasElement.height = 20; //rustWasm.get_canvas_size();
+function after_load(rust, wasm) {
+  let game = new rust.Game();
+  start(game, wasm);
+}
 
-  const container = document.getElementById("container");
+const container = document.getElementById("container");
+const canvasElement = document.querySelector("canvas");
 
-  // Set up Context and ImageData on the canvas
-  const canvasContext = canvasElement.getContext("2d");
-  const canvasImageData = canvasContext.createImageData(
-    canvasElement.width,
-    canvasElement.height
-  );
+function start(game, wasm) {
 
-  // Clear the canvas
-  canvasContext.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    // Get our canvas element from our index.html
+    canvasElement.width = canvasElement.height = game.get_canvas_size();
 
-  const drawCheckerBoard = () => {
-    const canvas_size = 20;
+    // Set up Context and ImageData on the canvas
+    const canvasContext = canvasElement.getContext("2d");
+    const canvasImageData = canvasContext.createImageData(
+        canvasElement.width,
+        canvasElement.height
+    );
 
+
+    //document.addEventListener("click", (ev)=>on_click(game, ev));
+    canvasElement.addEventListener("mousedown", (ev)=>start_painting(game, ev));
+    canvasElement.addEventListener("mouseup", stop_painting);
+    canvasElement.addEventListener("mousemove", mouse_move);
+
+    // Clear the canvas
+    canvasContext.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+    update(game, wasm, canvasImageData, canvasContext);
+}
+
+
+var painting = false;
+var me;
+
+function start_painting(game, e) {
+  painting = true;
+  me = e;
+  paint(game, me);
+}
+
+function stop_painting() {
+  painting = false;
+}
+
+function mouse_move(e) {
+  me = e;
+}
+
+
+function paint(game, e) {
+  me = e;
+  if (painting) {
+    var rect = me.target.getBoundingClientRect();
+    var x = me.clientX - rect.left; //x position within the element.
+    var y = me.clientY - rect.top;  //y position within the element.
+
+    let w = window.innerWidth;
+    let h = window.innerHeight;
+    let s = (h < w ? h : w);
+    let cs = game.get_canvas_size();
+    x = Math.floor(x/s*cs);
+    y = Math.floor(y/s*cs);
+
+    game.clicked(x, y);
+
+    setTimeout(()=> {
+      paint(game, me)
+    }, 30)
+  }
+}
+
+
+function update(game, wasm, canvasImageData, canvasContext) {
+
+    // update container size
     let w = window.innerWidth;
     let h = window.innerHeight;
     let s = (h < w ? h : w);
     container.style.width = s + "px";
     container.style.height = s + "px";
-    // console.log(s);
 
-    // Generate a new checkboard in wasm
-    rustWasm.update();
+    game.update();
+    const canvas_size = game.get_canvas_size();
 
-    // Pull out the RGBA values from Wasm memory
-    // Starting at the memory index of out output buffer (given by our pointer)
-    // 20 * 20 * 4 = checkboard max X * checkerboard max Y * number of pixel properties (R,G.B,A)
-
-    const wasmByteMemoryArray = new Uint8Array(rustWasm.memory.buffer);
-    const outputPointer = rustWasm.get_output_buffer_pointer();
+    // Extract frame data from game obj
+    const wasmByteMemoryArray = new Uint8Array(wasm.memory.buffer);
+    const outputPointer = game.get_output_buffer_pointer();
     const imageDataArray = wasmByteMemoryArray.slice(
       outputPointer,
       outputPointer + canvas_size * canvas_size * 4
     );
 
-    //console.log(imageDataArray[0, 0, 0]);
+    // console.log(imageDataArray[0, 0, 0], imageDataArray[0, 0, 1], imageDataArray[0, 0, 2], imageDataArray[0, 0, 3]);
 
     // Set the values to the canvas image data
     canvasImageData.data.set(imageDataArray);
-
-    // Clear the canvas
     canvasContext.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
-    // Place the new generated checkerboard onto the canvas
     canvasContext.putImageData(canvasImageData, 0, 0);
-  };
 
-  // call func once
-  // drawCheckerBoard();
-
-  // call it every 100 ms from now on
-  setInterval(() => {
-    drawCheckerBoard();
-  }, 1000);
+    // call update again in x ms
+    setTimeout(() => {
+      update(game, wasm, canvasImageData, canvasContext)
+    }, 10);
 };
-
-runWasm();
