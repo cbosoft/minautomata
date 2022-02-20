@@ -39,6 +39,8 @@ pub const GREEN: Colour = Colour{r: 0, g: 255, b: 0};
 pub const BLUE: Colour = Colour{r: 0, g: 0, b: 255};
 
 
+
+#[allow(dead_code,unused_imports)]
 mod tests {
 
     use super::*;

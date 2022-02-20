@@ -1,4 +1,8 @@
 use std::collections::HashMap;
+use std::rc::Rc;
+
+use wasm_bindgen::prelude::*;
+
 use super::colour::*;
 use super::kinds::ParticleKind;
 use super::particle::{Particle, Neighbours};
@@ -7,33 +11,15 @@ use super::salt::SaltParticle;
 use super::concrete::ConcreteParticle;
 use super::water::WaterParticle;
 use super::actions::Action;
-use std::rc::Rc;
+use super::point::Point;
+use super::log::log;
 
 
-#[wasm_bindgen]
-extern {
-    #[wasm_bindgen(js_namespace = console)]
-    pub fn log(s: String);
-}
-
-// The wasm-pack uses wasm-bindgen to build and generate JavaScript binding file.
-// Import the wasm-bindgen crate.
-use wasm_bindgen::prelude::*;
-
-// Define the size of our "checkerboard"
 const CANVAS_SIZE: usize = 128;
 const MENU_HEIGHT: usize = 24;
 const BASE_BUFFER_SIZE: usize = CANVAS_SIZE * CANVAS_SIZE;
 const OUTPUT_BUFFER_SIZE: usize = BASE_BUFFER_SIZE * 4;
 
-#[derive(Clone, Hash, std::cmp::Eq)]
-struct Point(usize, usize);
-
-impl PartialEq for Point {
-    fn eq(&self, other: &Self) -> bool {
-        (self.0 == other.0) && (self.1 == other.1)
-    }
-}
 
 #[wasm_bindgen]
 pub struct Game {
@@ -134,39 +120,6 @@ impl Game {
         }
     }
 
-    // fn point_is_valid(&self, x: i32, y: i32) -> bool {
-    //     (x >= 0) && (x < CANVAS_SIZE as i32) && (y >= 0) && (y < (CANVAS_SIZE - MENU_HEIGHT) as i32)
-    // }
-
-    // fn point_is_clear(&self, x: i32, y: i32) -> bool {
-    //     self.point_is_valid(x, y) && (self.getiv(x as usize, y as usize) == BLACK.as_i())
-    // }
-
-    // fn move_like_solid(&mut self, x: i32, y: i32) {
-    //     if self.point_is_clear(x, y + 1) {self.move_to(x, y, x, y + 1);}
-    // }
-
-    // fn move_like_powder(&mut self, x: i32, y: i32) {
-    //     if self.point_is_clear(x, y + 1) {self.move_to(x, y, x, y+1);}
-    //     else if self.point_is_clear(x + 1, y + 1) {self.move_to(x, y, x + 1, y + 1);}
-    //     else if self.point_is_clear(x - 1, y + 1) {self.move_to(x, y, x - 1, y + 1);}
-    // }
-
-    // fn move_like_liquid(&mut self, x: i32, y: i32) {
-    //     if self.point_is_clear(x, y + 1) {self.move_to(x, y, x, y+1);}
-    //     //else if self.point_is_clear(x + 1, y + 1) {self.move_to(x, y, x + 1, y + 1);}
-    //     //else if self.point_is_clear(x - 1, y + 1) {self.move_to(x, y, x - 1, y + 1);}
-    //     else if self.point_is_clear(x + 1, y) {self.move_to(x, y, x + 1, y);}
-    //     else if self.point_is_clear(x - 1, y) {self.move_to(x, y, x - 1, y);}
-    // }
-
-    // fn move_to(&mut self, x: i32, y: i32, x2: i32, y2: i32) {
-    //     let v = self.getv(x as usize, y as usize);
-    //     self.putv(x as usize, y as usize, BLACK.as_uarr());
-    //     self.putv(x2 as usize, y2 as usize, v);
-    //     self.is_processed[(y2 as usize) * CANVAS_SIZE + x2 as usize] = true;
-    // }
-
     fn get_cell_of_kind(kind: ParticleKind) -> Rc<dyn Particle> {
         match kind {
             ParticleKind::Background => Rc::new(Background),
@@ -198,7 +151,6 @@ impl Game {
     }
 
     fn paint(&mut self, x: usize, y: usize) {
-        //self.putv(x, y, self.current_brush.as_uarr());
         let idx = y*CANVAS_SIZE + x;
         self.cells[idx] = Game::get_cell_of_kind(self.current_brush);
     }
@@ -286,33 +238,6 @@ impl Game {
                 self.output_buffer[idx*4 + 3] = colour_vec[3];
             }
         }
-
-        // //self.swap_buffers();
-
-        // for y in 0..(CANVAS_SIZE - MENU_HEIGHT) {
-        //     for x in 0..CANVAS_SIZE {
-
-        //         if self.is_processed[y*CANVAS_SIZE + x] {
-        //             continue;
-        //         }
-
-        //         let v = self.getiv(x, y);
-                
-        //         if GRAY.i_eq(v) {
-        //             // do nothing
-        //         }
-        //         else if BLUE.i_eq(v) {
-        //             self.move_like_liquid(x as i32, y as i32);
-        //         }
-        //         else if DARK_GRAY.i_eq(v) {
-        //             self.move_like_solid(x as i32, y as i32);
-        //         }
-        //         else if !(BLACK.i_eq(v)) {
-        //             self.move_like_powder(x as i32, y as i32);
-        //         }
-
-        //     }
-        // }
         
 
     }
@@ -322,17 +247,6 @@ impl Game {
         pointer = self.output_buffer.as_ptr();
         return pointer;
     }
-
-    // fn swap_buffers(&mut self) {
-    //     for y in 0..CANVAS_SIZE {
-    //         for x in 0..CANVAS_SIZE {
-    //             let idx = (y*CANVAS_SIZE + x)*4;
-    //             for off in 0..4 {
-    //                 self.read_buffer[idx + off] = self.write_buffer[idx + off];
-    //             }
-    //         }
-    //     }
-    // }
     
     fn putv(&mut self, x: usize, y: usize, v: [u8; 4]) {
         let idx = (y*CANVAS_SIZE + x)*4;
@@ -361,27 +275,22 @@ impl Game {
 }
 
 
-// mod tests {
+#[allow(dead_code,unused_imports)]
+mod tests {
 
-//     use super::*;
+    use super::*;
 
-//     #[test]
-//     pub fn test_init() {
-//         let _ = Game::new();
-//     }
+    #[test]
+    pub fn test_init() {
+        let _ = Game::new();
+    }
 
-//     #[test]
-//     pub fn test_update() {
-//         let mut g = Game::new();
-//         for _ in 0..10 {
-//             g.update();
-//         }
-//     }
+    #[test]
+    pub fn test_update() {
+        let mut g = Game::new();
+        for _ in 0..10 {
+            g.update();
+        }
+    }
 
-//     #[test]
-//     pub fn test_colours() {
-//         let red = Colour::new(255, 0, 0);
-//         assert_eq!(255 << 16, red.as_i());
-//     }
-
-// }
+}

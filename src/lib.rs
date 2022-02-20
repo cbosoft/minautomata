@@ -7,3 +7,5 @@ mod background;
 mod salt;
 mod concrete;
 mod water;
+mod point;
+mod log;
