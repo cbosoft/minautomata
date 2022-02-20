@@ -4,7 +4,5 @@ pub enum ParticleKind {
     Background,
     Salt,
     Water,
-    Leaf,
-    Wood,
     Concrete
 }
