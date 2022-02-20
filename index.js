@@ -37,6 +37,8 @@ function start(game, wasm) {
     canvasElement.addEventListener("mousedown", (ev)=>start_painting(game, ev));
     canvasElement.addEventListener("mouseup", stop_painting);
     canvasElement.addEventListener("mousemove", mouse_move);
+    window.addEventListener("resize", update_window_size);
+    update_window_size();
 
     // Clear the canvas
     canvasContext.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -85,15 +87,18 @@ function paint(game, e) {
   }
 }
 
+function update_window_size() {
+  let w = window.innerWidth;
+  let h = window.innerHeight;
+  let s = (h < w ? h : w);
+  container.style.width = s + "px";
+  container.style.height = s + "px";
+}
+
 
 function update(game, wasm, canvasImageData, canvasContext) {
 
     // update container size
-    let w = window.innerWidth;
-    let h = window.innerHeight;
-    let s = (h < w ? h : w);
-    container.style.width = s + "px";
-    container.style.height = s + "px";
 
     game.update();
     const canvas_size = game.get_canvas_size();
