@@ -7,7 +7,7 @@ use crate::colour::{Colour, LIGHT_GRAY};
 pub struct ConcreteParticle;
 
 impl Particle for ConcreteParticle {
-    fn get_action(&self, _: Neighbours) -> Action {
+    fn get_action(&mut self, _: Neighbours) -> Action {
         Action::StayPut
     }
     fn get_type(&self) -> ParticleKind {

@@ -16,11 +16,21 @@ impl SaltParticle {
         }
     }
 
+    fn is_solvent(k: ParticleKind) -> bool {
+        k == ParticleKind::Water
+    }
+
 }
 
 impl Particle for SaltParticle {
-    fn get_action(&self, neighbours: Neighbours) -> Action {
-        if neighbours[1 + 1][0 + 1] == ParticleKind::Background {
+    fn get_action(&mut self, neighbours: Neighbours) -> Action {
+        if Self::is_solvent(neighbours[0][0]) || Self::is_solvent(neighbours[0][1])
+            || Self::is_solvent(neighbours[0][2]) || Self::is_solvent(neighbours[1][0])
+            || Self::is_solvent(neighbours[1][2]) || Self::is_solvent(neighbours[2][0])
+            || Self::is_solvent(neighbours[2][1]) || Self::is_solvent(neighbours[2][2]) {
+                Action::Pop
+        }
+        else if neighbours[1 + 1][0 + 1] == ParticleKind::Background {
             Action::MoveInto{x:0, y:1}
         }
         else {

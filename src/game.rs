@@ -129,7 +129,7 @@ impl Game {
     }
 
     fn move_to(&mut self, source_idx: usize, dest_idx: usize) {
-        if dest_idx <= GAME_N_CELLS {
+        if dest_idx < GAME_N_CELLS {
             self.cells[dest_idx] = self.cells[source_idx].clone();
             self.cells[dest_idx].borrow_mut().set_processed();
         }
@@ -196,7 +196,7 @@ impl Game {
         }
 
         for y in 0..(GAME_N_ROWS as i32) {
-            for x in 0..(GAME_N_COLS as i32 - 1) {
+            for x in 0..(GAME_N_COLS as i32) {
                 let idx = y as usize * GAME_N_COLS + x as usize;
                 if self.cells[idx].borrow().get_was_processed() {
                     // this particle has already interacted this turn, 
@@ -205,14 +205,16 @@ impl Game {
 
                 let mut neighbours: Neighbours = [[ParticleKind::Background; 3]; 3];
                 for dy in 0..3 {
-                    if ((y + dy - 1) < 0) || ((y + dy - 1) as usize >= GAME_N_ROWS) {
+                    let ny = y + dy - 1;
+                    if (ny < 0) || (ny as usize >= GAME_N_ROWS) {
                         continue;
                     }
                     for dx in 0..3 {
-                        if ((x + dx - 1) < 0) || ((x + dx - 1) as usize >= GAME_N_COLS) {
+                        let nx = x + dx - 1;
+                        if (nx < 0) || (nx as usize >= GAME_N_COLS) {
                             continue;
                         }
-                        let nidx = (y + dy - 1) as usize * GAME_N_COLS + (x + dx - 1) as usize;
+                        let nidx = ny as usize * GAME_N_COLS + nx as usize;
                         if nidx >= GAME_N_CELLS {
                             continue;
                         }
@@ -222,7 +224,7 @@ impl Game {
                     }
                 }
 
-                let action = self.cells[idx].borrow().get_action(neighbours);
+                let action = self.cells[idx].borrow_mut().get_action(neighbours);
                 match action {
                     Action::Become(_kind) => (/* TODO */),
                     Action::MoveInto{x: dx, y: dy} => {

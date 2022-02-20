@@ -7,7 +7,7 @@ use crate::colour::{Colour, BLACK};
 pub struct Background;
 
 impl Particle for Background {
-    fn get_action(&self, neighbours: Neighbours) -> Action {
+    fn get_action(&mut self, neighbours: Neighbours) -> Action {
         Action::StayPut
     }
     fn get_type(&self) -> ParticleKind {
