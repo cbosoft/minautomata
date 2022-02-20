@@ -172,7 +172,6 @@ impl Game {
             ParticleKind::Background => Rc::new(Background),
             ParticleKind::Salt => Rc::new(SaltParticle),
             ParticleKind::Concrete => Rc::new(ConcreteParticle),
-            ParticleKind::Vegetation => Rc::new(Background), // TODO
             ParticleKind::Water => Rc::new(WaterParticle)
         }
     }
@@ -265,7 +264,10 @@ impl Game {
                 match self.cells[idx].as_ref().get_action(neighbours) {
                     Action::Become(_kind) => (/* TODO */),
                     Action::MoveInto{x: dx, y: dy} => {
-                        self.move_to(idx, (y + dy) as usize * CANVAS_SIZE + (x + dx) as usize)
+                        self.move_to(idx, (y + dy) as usize * CANVAS_SIZE + (x + dx) as usize);
+                    },
+                    Action::GrowInto{x: dx, y: dy, kind} => {
+                        self.cells[(y + dy) as usize * CANVAS_SIZE + (x + dx) as usize] = Game::get_cell_of_kind(kind);
                     },
                     Action::Pop => self.cells[idx] = Rc::new(Background),
                     Action::StayPut => ()
