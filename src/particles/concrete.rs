@@ -1,7 +1,7 @@
 use super::particle::{Particle, Neighbours};
-use super::actions::Action;
-use super::kinds::ParticleKind;
-use super::colour::{Colour, LIGHT_GRAY};
+use crate::actions::Action;
+use crate::kinds::ParticleKind;
+use crate::colour::{Colour, LIGHT_GRAY};
 
 #[derive(Copy, Clone)]
 pub struct ConcreteParticle;

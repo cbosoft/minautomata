@@ -5,14 +5,15 @@ use wasm_bindgen::prelude::*;
 
 use super::colour::*;
 use super::kinds::ParticleKind;
-use super::particle::{Particle, Neighbours};
-use super::background::Background;
-use super::salt::SaltParticle;
-use super::concrete::ConcreteParticle;
-use super::water::WaterParticle;
+use super::particles::{
+    particle::{Particle, Neighbours},
+    background::Background,
+    salt::SaltParticle,
+    concrete::ConcreteParticle,
+    water::WaterParticle
+};
 use super::actions::Action;
 use super::point::Point;
-use super::log::log;
 
 
 const CANVAS_SIZE: usize = 128;
@@ -20,7 +21,7 @@ const MENU_HEIGHT: usize = 24;
 const BASE_BUFFER_SIZE: usize = CANVAS_SIZE * CANVAS_SIZE;
 const OUTPUT_BUFFER_SIZE: usize = BASE_BUFFER_SIZE * 4;
 
-
+/// A structure containing data and functions for running the game.
 #[wasm_bindgen]
 pub struct Game {
     cells: Vec<Rc<dyn Particle>>,
@@ -30,9 +31,11 @@ pub struct Game {
     palette: HashMap<Point, ParticleKind>
 }
 
+/// Functions for game
 #[wasm_bindgen]
 impl Game {
 
+    /// create new game
     #[wasm_bindgen(constructor)]
     pub fn new() -> Game {
         let mut g = Game{
@@ -46,7 +49,6 @@ impl Game {
         for _ in 0..BASE_BUFFER_SIZE {
             g.cells.push(Rc::new(Background));
         }
-        log("Init!".to_string());
 
         g.init_palette();
         g.init_canvas();
