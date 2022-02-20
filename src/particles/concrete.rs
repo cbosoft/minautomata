@@ -1,4 +1,4 @@
-use super::particle::{Particle, Neighbours};
+use super::particle::{Particle, Neighbours, Processable};
 use crate::actions::Action;
 use crate::kinds::ParticleKind;
 use crate::colour::{Colour, LIGHT_GRAY};
@@ -16,7 +16,21 @@ impl Particle for ConcreteParticle {
     fn get_colour(&self) -> Colour {
         LIGHT_GRAY
     }
-    fn tick(&self){
+    fn tick(&mut self){
+        // do nothing
+    }
+}
 
+impl Processable for ConcreteParticle {
+    fn get_was_processed(&self) -> bool {
+        true
+    }
+
+    fn set_processed(&mut self) {
+        // do nothing
+    }
+
+    fn set_not_processed(&mut self) {
+        // do nothing
     }
 }

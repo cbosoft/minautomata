@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::cell::RefCell;
 
 use wasm_bindgen::prelude::*;
 
@@ -19,14 +20,16 @@ use super::point::Point;
 const CANVAS_SIZE: usize = 128;
 const MENU_HEIGHT: usize = 24;
 const BASE_BUFFER_SIZE: usize = CANVAS_SIZE * CANVAS_SIZE;
+const GAME_N_ROWS: usize = CANVAS_SIZE - MENU_HEIGHT;
+const GAME_N_COLS: usize = CANVAS_SIZE;
+const GAME_N_CELLS: usize = GAME_N_COLS * GAME_N_ROWS;
 const OUTPUT_BUFFER_SIZE: usize = BASE_BUFFER_SIZE * 4;
 
 /// A structure containing data and functions for running the game.
 #[wasm_bindgen]
 pub struct Game {
-    cells: Vec<Rc<dyn Particle>>,
+    cells: Vec<Rc<RefCell<dyn Particle>>>,
     output_buffer: [u8; OUTPUT_BUFFER_SIZE],
-    is_processed: [bool; BASE_BUFFER_SIZE],
     current_brush: ParticleKind,
     palette: HashMap<Point, ParticleKind>
 }
@@ -41,13 +44,12 @@ impl Game {
         let mut g = Game{
             cells: Vec::new(),
             output_buffer: [0; OUTPUT_BUFFER_SIZE],
-            is_processed: [false; BASE_BUFFER_SIZE],
             current_brush: ParticleKind::Salt,
             palette: HashMap::new()
         };
 
-        for _ in 0..BASE_BUFFER_SIZE {
-            g.cells.push(Rc::new(Background));
+        for _ in 0..GAME_N_CELLS {
+            g.cells.push(Rc::new(RefCell::new(Background)));
         }
 
         g.init_palette();
@@ -57,32 +59,27 @@ impl Game {
     }
 
     fn hline(&mut self, y: usize, colour: &Colour) {
-        for x in 0..CANVAS_SIZE {
+        for x in 0..GAME_N_COLS {
             self.putv(x, y, colour.as_uarr());
         }
     }
 
     fn init_canvas(&mut self) {
 
-        for y in 0..(CANVAS_SIZE - MENU_HEIGHT) {
-            self.hline(y, &BLACK);
+        for y in GAME_N_ROWS..CANVAS_SIZE {
+            self.hline(y, &GRAY);
         }
 
-        self.hline(CANVAS_SIZE - 1 - MENU_HEIGHT, &BLUE);
-        for dy in 0..MENU_HEIGHT {
-            self.hline(CANVAS_SIZE - 1 - dy, &GRAY);
-        }
-
-        let y = CANVAS_SIZE - MENU_HEIGHT - 1;
-        for x in 0..CANVAS_SIZE {
-            let idx = y*CANVAS_SIZE + x;
-            self.cells[idx] = Rc::new(ConcreteParticle);
+        let y = GAME_N_ROWS - 1;
+        for x in 0..GAME_N_COLS {
+            let idx = y*GAME_N_COLS + x;
+            self.cells[idx] = Game::get_cell_of_kind(ParticleKind::Concrete);
         }
     }
 
     fn init_palette(&mut self) {
         let mut x: usize = 10;
-        let mut y: usize = CANVAS_SIZE - MENU_HEIGHT + 5;
+        let mut y: usize = GAME_N_ROWS + 5;
 
         let kinds = vec!(
             ParticleKind::Background,
@@ -96,7 +93,7 @@ impl Game {
             y += 7;
 
             if y >= CANVAS_SIZE {
-                y = CANVAS_SIZE - MENU_HEIGHT + 5;
+                y = GAME_N_ROWS + 5;
                 x += 10;
             }
 
@@ -113,7 +110,7 @@ impl Game {
                 }
             }
             let p = Game::get_cell_of_kind(kind);
-            let colour = p.as_ref().get_colour();
+            let colour = p.borrow().get_colour();
             for dx in 0..3 {
                 for dy in 0..3 {
                     self.putv(x + dx - 1, y + dy - 1, colour.as_uarr());
@@ -122,19 +119,23 @@ impl Game {
         }
     }
 
-    fn get_cell_of_kind(kind: ParticleKind) -> Rc<dyn Particle> {
+    fn get_cell_of_kind(kind: ParticleKind) -> Rc<RefCell<dyn Particle>> {
         match kind {
-            ParticleKind::Background => Rc::new(Background),
-            ParticleKind::Salt => Rc::new(SaltParticle),
-            ParticleKind::Concrete => Rc::new(ConcreteParticle),
-            ParticleKind::Water => Rc::new(WaterParticle)
+            ParticleKind::Background => Rc::new(RefCell::new(Background)),
+            ParticleKind::Salt => Rc::new(RefCell::new(SaltParticle::new())),
+            ParticleKind::Concrete => Rc::new(RefCell::new(ConcreteParticle)),
+            ParticleKind::Water => Rc::new(RefCell::new(WaterParticle::new()))
         }
     }
 
     fn move_to(&mut self, source_idx: usize, dest_idx: usize) {
-        self.cells[dest_idx] = self.cells[source_idx].clone();
-        self.cells[source_idx] = Rc::new(Background);
-        self.is_processed[dest_idx] = true;
+        if dest_idx <= GAME_N_CELLS {
+            self.cells[dest_idx] = self.cells[source_idx].clone();
+            self.cells[dest_idx].borrow_mut().set_processed();
+        }
+        // else { /* out-of-bounds */ }
+
+        self.cells[source_idx] = Game::get_cell_of_kind(ParticleKind::Background);
     }
 
     #[wasm_bindgen]
@@ -144,7 +145,7 @@ impl Game {
 
     #[wasm_bindgen]
     pub fn clicked(&mut self, x: usize, y: usize) {
-        if y > CANVAS_SIZE - MENU_HEIGHT {
+        if y >= GAME_N_ROWS {
             self.menu_clicked(x, y)
         }
         else {
@@ -153,7 +154,7 @@ impl Game {
     }
 
     fn paint(&mut self, x: usize, y: usize) {
-        let idx = y*CANVAS_SIZE + x;
+        let idx = y*GAME_N_COLS + x;
         self.cells[idx] = Game::get_cell_of_kind(self.current_brush);
     }
 
@@ -187,52 +188,59 @@ impl Game {
     #[wasm_bindgen]
     pub fn update(&mut self) {
 
-        for y in 1..(CANVAS_SIZE-1) {
-            for x in 1..(CANVAS_SIZE-1) {
+        for y in 0..GAME_N_ROWS {
+            for x in 0..GAME_N_COLS {
                 let idx = y*CANVAS_SIZE + x;
-                self.is_processed[idx] = false;
+                self.cells[idx].borrow_mut().tick();
             }
         }
 
-        for y in 0..(CANVAS_SIZE as i32 - 1) {
-            for x in 0..(CANVAS_SIZE as i32 - 1) {
-                let idx = y as usize * CANVAS_SIZE + x as usize;
-                if self.is_processed[idx] {
+        for y in 0..(GAME_N_ROWS as i32) {
+            for x in 0..(GAME_N_COLS as i32 - 1) {
+                let idx = y as usize * GAME_N_COLS + x as usize;
+                if self.cells[idx].borrow().get_was_processed() {
+                    // this particle has already interacted this turn, 
                     continue;
                 }
 
                 let mut neighbours: Neighbours = [[ParticleKind::Background; 3]; 3];
                 for dy in 0..3 {
-                    if ((y + dy - 1) < 0) || ((y + dy - 1) as usize >= CANVAS_SIZE) {
+                    if ((y + dy - 1) < 0) || ((y + dy - 1) as usize >= GAME_N_ROWS) {
                         continue;
                     }
                     for dx in 0..3 {
-                        if ((x + dx - 1) < 0) || ((x + dx - 1) as usize >= CANVAS_SIZE) {
+                        if ((x + dx - 1) < 0) || ((x + dx - 1) as usize >= GAME_N_COLS) {
                             continue;
                         }
-                        let nidx = (y + dy - 1) as usize * CANVAS_SIZE + (x + dx - 1) as usize;
-                        neighbours[dy as usize][dx as usize] = self.cells[nidx].as_ref().get_type();
+                        let nidx = (y + dy - 1) as usize * GAME_N_COLS + (x + dx - 1) as usize;
+                        if nidx >= GAME_N_CELLS {
+                            continue;
+                        }
+                        else {
+                            neighbours[dy as usize][dx as usize] = self.cells[nidx].borrow().get_type();
+                        }
                     }
                 }
 
-                match self.cells[idx].as_ref().get_action(neighbours) {
+                let action = self.cells[idx].borrow().get_action(neighbours);
+                match action {
                     Action::Become(_kind) => (/* TODO */),
                     Action::MoveInto{x: dx, y: dy} => {
-                        self.move_to(idx, (y + dy) as usize * CANVAS_SIZE + (x + dx) as usize);
+                        self.move_to(idx, (y + dy) as usize * GAME_N_COLS + (x + dx) as usize);
                     },
                     Action::GrowInto{x: dx, y: dy, kind} => {
-                        self.cells[(y + dy) as usize * CANVAS_SIZE + (x + dx) as usize] = Game::get_cell_of_kind(kind);
+                        self.cells[(y + dy) as usize * GAME_N_COLS + (x + dx) as usize] = Game::get_cell_of_kind(kind);
                     },
-                    Action::Pop => self.cells[idx] = Rc::new(Background),
+                    Action::Pop => self.cells[idx] = Game::get_cell_of_kind(ParticleKind::Background),
                     Action::StayPut => ()
                 }
             }
         }
 
-        for y in 0..(CANVAS_SIZE - MENU_HEIGHT) {
-            for x in 0..CANVAS_SIZE {
-                let idx = y*CANVAS_SIZE + x;
-                let colour = self.cells[idx].as_ref().get_colour();
+        for y in 0..GAME_N_ROWS {
+            for x in 0..GAME_N_COLS {
+                let idx = y*GAME_N_COLS + x;
+                let colour = self.cells[idx].borrow().get_colour();
                 let colour_vec = colour.as_uarr();
                 for off in 0..3 {
                     self.output_buffer[idx*4 + off] = colour_vec[off];
@@ -251,7 +259,7 @@ impl Game {
     }
     
     fn putv(&mut self, x: usize, y: usize, v: [u8; 4]) {
-        let idx = (y*CANVAS_SIZE + x)*4;
+        let idx = (y*GAME_N_COLS + x)*4;
         for off in 0..4 {
             self.output_buffer[idx + off] = v[off];
         }
@@ -259,7 +267,7 @@ impl Game {
     
     fn getv(&self, x: usize, y: usize) -> [u8; 4] {
         let mut rv: [u8; 4] = [0; 4];
-        let idx = (y*CANVAS_SIZE + x)*4;
+        let idx = (y*GAME_N_COLS + x)*4;
         for off in 0..4 {
             rv[off] = self.output_buffer[idx + off];
         }
@@ -268,7 +276,7 @@ impl Game {
     
     fn getiv(&self, x: usize, y: usize) -> i32 {
         let mut iarr: [i32; 4] = [0; 4];
-        let idx = (y*CANVAS_SIZE + x)*4;
+        let idx = (y*GAME_N_COLS + x)*4;
         for i in 0..4 {
             iarr[i] = self.output_buffer[idx + i] as i32;
         }
