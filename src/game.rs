@@ -11,7 +11,8 @@ use super::particles::{
     background::Background,
     salt::SaltParticle,
     concrete::ConcreteParticle,
-    water::WaterParticle
+    water::WaterParticle,
+    cornucopia::CornucopiaParticle
 };
 use super::actions::Action;
 use super::point::Point;
@@ -85,7 +86,8 @@ impl Game {
             ParticleKind::Background,
             ParticleKind::Salt,
             ParticleKind::Concrete,
-            ParticleKind::Water
+            ParticleKind::Water,
+            ParticleKind::Cornucopia
         );
 
         for colour in kinds {
@@ -124,7 +126,8 @@ impl Game {
             ParticleKind::Background => Rc::new(RefCell::new(Background)),
             ParticleKind::Salt => Rc::new(RefCell::new(SaltParticle::new())),
             ParticleKind::Concrete => Rc::new(RefCell::new(ConcreteParticle)),
-            ParticleKind::Water => Rc::new(RefCell::new(WaterParticle::new()))
+            ParticleKind::Water => Rc::new(RefCell::new(WaterParticle::new())),
+            ParticleKind::Cornucopia => Rc::new(RefCell::new(CornucopiaParticle::new()))
         }
     }
 
